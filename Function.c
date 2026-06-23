@@ -1,33 +1,41 @@
-//= Function for accessing npc variables from another NPC without using 'getvariableofnpc' and can have dynamic names
-//= Use Cases:
-/* 
-//===== getnpc_var("<Variable Name>",{,<Target NPC>});
-**
-** .@value = getnpc_var("target_var","npc_name");
-** .@value$ = getnpc_var("target_var$","npc_name");
-** .@value$ = getnpc_var("target_var$[2]","npc_name");
-** .@size = getarraysize(getnpcvar("target_array","npc_name"));
-**
-//===== setnpc_var("<Variable Name>",<New Value>,{,<Target NPC>});
-**
-** setnpc_var("target_var",10,"npc_name");
-** setnpc_var("target_var$","HELLO","npc_name");
-** setnpc_var("target_var$[2]","Change Array Value 2","npc_name");
-**
+/* Function to change get a variable value from another NPC
+** getnpc_var("<Variable Name>",{,<NPC NAME>});
+
+-- Use Cases
+.@value = getnpc_var("target_var","npc_name");
+.@value$ = getnpc_var("target_var$","npc_name");
+.@value$ = getnpc_var("target_var$[2]","npc_name");
+.@size = getarraysize(getnpcvar("target_array","npc_name"));
 */
 
 function	script	getnpc_var	{
 	return getvariableofnpc(getd((compare(getarg(0),".")?"":".") + getarg(0)),getarg(1,strnpcinfo(3)));
 }
 
+/* Function to change a variable/array from another NPC
+** setnpc_var("<Variable Name>",<New Value>,{,<NPC NAME>});
+
+-- Use Cases
+setnpc_var("target_var",10,"npc_name");
+setnpc_var("target_var$","HELLO","npc_name");
+setnpc_var("target_var$[2]","Change Array Value 2","npc_name");
+*/
+
 function	script	setnpc_var	{
 	set getvariableofnpc(getd((compare(getarg(0),".")?"":".") + getarg(0)),getarg(2,strnpcinfo(3))),getarg(1);
 	return;
 }
 
-//= Function for copying an array from another NPC and return the size of the copied array
-//= getnpc_array("<Target Array Variable>",<Copied Array Variable>{,<"Target NPC">});
-//= .@array_size = getnpc_array(".target_array",.@temp_array,"npc_name");
+/* Function to copy an array from another NPC
+** getnpc_array("<Target Array Variable>",<Temporary Array Variable>{,<"NPC Name">});
+
+-- Use Cases
+.@array_size = getnpc_array(".target_array",.@temp_array,"npc_name");
+
+- Target array data type should be the same
+- returns the array size
+*/
+
 function	script	getnpc_array	{
 	.@type$ = (compare(getarg(0),"$") ? "$" : "");
 	copyarray getd(".@temp_array" + .@type$ + "[0]"),getnpc_var(getarg(0),getarg(2,strnpcinfo(3))),getarraysize(getnpc_var(getarg(0),getarg(2,strnpcinfo(3))));
@@ -41,17 +49,41 @@ function	script	getnpc_array	{
 	return .@size;
 }
 
-//= Basically inarray but for the target npc
-//= getnpc_arrindex("<Target Array Variable>",<Search Value>{,<"Target NPC">});
-//= .@array_size = getnpc_array(".target_array",.@temp_array,"npc_name");
+/* Search the index of a value in from another NPC Variable
+** getnpc_arrindex("<Target Array Variable>",<Search Value>{,<"NPC Name">});
+
+-- Use Cases
+.@index = getnpc_arrindex(".target_array",7,"npc_name");
+*/
+
 function	script	getnpc_arrindex	{
 	return inarray(getnpc_var(getarg(0),getarg(2,strnpcinfo(3))),getarg(1));
 }
 
-//= Push an element to the target array and returns the current array size.
 function	script	array_push	{
 	set getelementofarray(getarg(0),(.@size = getarraysize(getarg(0)))), getarg(1);
 	return .@size;
+}
+
+function	script	swap_int	{
+	.@temp = getarg(0);
+	set getarg(0), getarg(1);
+	set getarg(1), .@temp;
+	return;
+}
+
+function	script	shuffle_index	{
+	.@count = getargcount();
+	freeloop(true);
+	for ( .@i = getarraysize(getarg(0)) - 1; .@i > 0; --.@i ) {
+		.@idx = rand(.@i + 1);
+		swap_int(getelementofarray(getarg(0), .@i), getelementofarray(getarg(0), .@idx));
+		if ( getargcount() == 1 ) continue;
+		for ( .@x = 1; .@x < .@count; ++.@x )
+			swap_int(getelementofarray(getarg(.@x), .@i), getelementofarray(getarg(.@x), .@idx));
+	}
+	freeloop(false);
+	return;
 }
 
 /* Functions for storing/fetching multiple array of data without using unreadable getd
@@ -84,12 +116,22 @@ function	script	SprintIndex	{
     return getvariableofnpc(getd(sprintf((compare(getarg(0), "$") ? (delchar(getarg(0), getstrlen(getarg(0)) - 1) + "_%d$[%d]") : (getarg(0) + "_%d[%d]")), getarg(1), getarg(2))), getarg(3,strnpcinfo(3)));
 }
 
+function	script	GlobalVar	{
+    return getd(sprintf((compare(getarg(0), "$") ? (delchar(getarg(0), getstrlen(getarg(0)) - 1) + "_%d$") : (getarg(0) + "_%d")), getarg(1)));
+}
+
+function	script	GlobalIndex	{
+    return getd(sprintf((compare(getarg(0), "$") ? (delchar(getarg(0), getstrlen(getarg(0)) - 1) + "_%d$[%d]") : (getarg(0) + "_%d[%d]")), getarg(1), getarg(2)));
+}
+
+
 /* Instance commands shorcuts
 instance_warning(<TYPE>);
-instance_hide(<NPC Name>,<bool>);
-instance_enable(<NPC Name>,<bool>);
+instance_hide(<NPC Name>,<Bool>);
+instance_enable(<NPC Name>,<Bool>);
 instance_event(<NPC Name>,<Event Name>,<Attach Player Bool>);
 */
+
 function	script	instance_warning	{
 	.@type = (getargcount() < 1 ? 0 : getarg(0));
 	.@md_name$ = (getargcount() == 2 ? getarg(1,"") : "");
@@ -120,7 +162,6 @@ function	script	instance_warning	{
 	return;
 }
 
-//= Instance event control so I don't have to type instance_npcname and concatinate something every single time I have to do an event call.
 function	script	instance_hide	{
 	if(getarg(1))
 		hideonnpc instance_npcname(getarg(0));
@@ -145,7 +186,6 @@ function	script	instance_event	{
 	return;
 }
 
-//= Instance variable control because I hate how 'variables breaks my IDE.
 function	script	get_instance_var	{
 	return getd("'" + getarg(0));
 }
@@ -177,7 +217,7 @@ function	script	cloaknpc	{
 }
 
 function	script	pctalk	{
-	unittalk getcharid(3),strcharinfo(0) + ":" + getarg(0),bc_self;
+	unittalk getcharid(3),strcharinfo(0) + ": " + getarg(0),bc_self;
 	return;
 }
 
@@ -187,6 +227,18 @@ function	script	pcblock	{
 	else
 		setpcblock PCBLOCK_NPC,getarg(0),getarg(1);
 	return;
+}
+
+function	script	Q_STATUS	{
+	return isbegin_quest( getarg(0) );
+}
+
+function	script	Q_HUNTING	{
+	return checkquest( getarg(0), HUNTING );
+}
+
+function	script	Q_PLAYTIME	{
+	return checkquest( getarg(0), PLAYTIME );
 }
 
 /* Search the index of a value in from another NPC Variable
@@ -232,45 +284,27 @@ function	script	getday	{
 	return .@d$;
 }
 
-function	script	safe_rand	{
-	if ( !getargcount() ) 
-		return;
-	.@min = getarg(0);
-	
-	if ( getargcount() > 1 )
-		.@max = getarg(1);
-	else {
-		if ( .@min == 0 ) {
-			errormes "safe_rand : Random value can't be 0.";
-			end;
-		}
-		if ( .@min == 1 )
-			return 0;
-		else
-			return rand(.@min);
-	}
-	
-	if ( .@min == .@max )
-		return .@min;
-
-	if ( .@max < .@min ) {
-		.@temp = .@min;
-		.@min = .@max;
-		.@max = .@temp;
-	}
-	
-	return rand(.@min, .@max);
-}
-
-function	script	validate_itemid	{
-	return getiteminfo(getarg(0), ITEMINFO_TYPE);
+function	script	word_capitalize	{
+	return setchar(getarg(0), strtoupper(charat(getarg(0),0)), 0);
 }
 
 //= DUMMY NPC's
--	script(CLOAKED)	dummynpc	-1,{
+-	script	dummynpc	-1,{
 	end;
+	
+OnInit:
+	cloakonnpc;
+end;
 }
 
 -	script	dummynpc2	-1,{ 
 	end; 
+}
+
+-	script	instancedummynpc	-1,{ 
+	end;
+	
+OnInstanceInit: 
+	instance_enable(strnpcinfo(0),false); 
+end; 
 }
